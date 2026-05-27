@@ -13,4 +13,57 @@ model users {
   email        String   @unique
   created_at   DateTime @default(now()) @db.Timestamptz(6)
   premium_plan Boolean  @default(false)
+
+  attempts Attempt[]
 }
+
+enum AlgebraTopic {
+  LINEAR_EQUATIONS
+  FACTORING
+}
+
+model Attempt {
+  id                String        @id @default(uuid()) @db.Uuid
+  userId            String        @map("user_id") @db.Uuid
+  topic             AlgebraTopic?
+  statementTex      String        @map("statement_tex")
+  expectedAnswerTex String?       @map("expected_answer_tex")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user  users  @relation(fields: [userId], references: [uid], onDelete: Cascade)
+  steps Step[]
+
+  @@map("attempts")
+}
+
+model Step {
+  id        String   @id @default(uuid()) @db.Uuid
+  attemptId String   @map("attempt_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  index     Int
+  latex     String
+  bbox      Json
+  isCorrect Boolean  @map("is_correct")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  hint    Hint?
+
+  @@map("steps")
+}
+
+model Hint {
+  id            String   @id @default(uuid()) @db.Uuid
+  stepId        String   @unique @map("step_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  errorType     String   @map("error_type")
+  feedbackTex   String   @map("feedback_tex")
+  suggestionTex String   @map("suggestion_tex")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  step Step @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@map("hints")
+}
+
