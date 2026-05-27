@@ -66,3 +66,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide Excalidraw's library button (default sidebar trigger) — unused for handwriting algebra.
+   Needs higher specificity than Excalidraw's own `.excalidraw .sidebar-trigger { display: flex }`,
+   which loads after this file. */
+.excalidraw .sidebar-trigger__label-element:has(.default-sidebar-trigger) {
+  display: none;
+}

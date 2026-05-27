@@ -1,9 +1,16 @@
+import { Suspense } from "react";
+import { SolveWorkspace } from "@/components/workspace/SolveWorkspace";
+
 export default function SolvePage() {
   return (
-    <div className="flex flex-1 items-center justify-center p-10">
-      <p className="text-sm text-muted-foreground">
-        Drawing canvas coming next.
-      </p>
-    </div>
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          Loading…
+        </div>
+      }
+    >
+      <SolveWorkspace />
+    </Suspense>
   );
 }
