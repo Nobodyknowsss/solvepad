@@ -1,6 +1,7 @@
 "use client";
 
-import { Eye, Loader2, X } from "lucide-react";
+import { CheckCircle2, Eye, Loader2, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import MathRender from "./MathRender";
 
@@ -8,11 +9,15 @@ export function PreviewPanel({
   steps,
   loading,
   error,
+  wrongStep,
+  message,
   onClose,
 }: {
   steps: string[];
   loading: boolean;
   error: string | null;
+  wrongStep: number | null;
+  message: string | null;
   onClose: () => void;
 }) {
   return (
@@ -41,19 +46,42 @@ export function PreviewPanel({
           </p>
         ) : (
           <ol className="flex flex-col gap-3">
-            {steps.map((latex, i) => (
-              <li
-                key={i}
-                className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2"
-              >
-                <span className="select-none text-xs font-medium text-muted-foreground">
-                  {i + 1}
-                </span>
-                <div className="min-w-0 overflow-x-auto">
-                  <MathRender latex={latex} />
-                </div>
+            {steps.map((latex, i) => {
+              const isWrong = i === wrongStep;
+              return (
+                <li key={i} className="flex flex-col gap-1.5">
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 rounded-md border px-3 py-2",
+                      isWrong
+                        ? "border-destructive bg-destructive/10"
+                        : "border-border bg-background",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "select-none text-xs font-medium",
+                        isWrong ? "text-destructive" : "text-muted-foreground",
+                      )}
+                    >
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 overflow-x-auto">
+                      <MathRender latex={latex} />
+                    </div>
+                  </div>
+                  {isWrong && message && (
+                    <p className="pl-3 text-xs text-destructive">{message}</p>
+                  )}
+                </li>
+              );
+            })}
+            {wrongStep === null && (
+              <li className="flex items-center gap-2 pt-1 text-sm text-muted-foreground">
+                <CheckCircle2 className="size-4 text-foreground" />
+                No errors found in your steps.
               </li>
-            ))}
+            )}
           </ol>
         )}
       </div>

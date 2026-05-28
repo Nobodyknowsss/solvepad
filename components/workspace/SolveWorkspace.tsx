@@ -45,6 +45,8 @@ export function SolveWorkspace() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewSteps, setPreviewSteps] = useState<string[]>([]);
+  const [previewWrongStep, setPreviewWrongStep] = useState<number | null>(null);
+  const [previewMessage, setPreviewMessage] = useState<string | null>(null);
 
   const insertCount = useRef(0);
 
@@ -90,17 +92,19 @@ export function SolveWorkspace() {
         setNotice("Canvas isn't ready yet — give it a second and try again.");
         return;
       }
-      // Signed in → preview (read) the canvas, then (later) verify with nerdamer.
+      // Signed in → read the canvas, then verify each step with nerdamer.
       setPreviewOpen(true);
       setPreviewError(null);
       setPreviewSteps([]);
+      setPreviewWrongStep(null);
+      setPreviewMessage(null);
       setPreviewLoading(true);
       try {
         const image = await exportCanvasPng(api);
         const res = await fetch("/api/preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image }),
+          body: JSON.stringify({ image, problem }),
         });
         const data: unknown = await res.json().catch(() => null);
         if (!res.ok) {
@@ -109,18 +113,24 @@ export function SolveWorkspace() {
               "Could not read your handwriting.",
           );
         }
-        const steps =
-          (data as { steps?: { latex: string }[] } | null)?.steps?.map(
-            (s) => s.latex,
-          ) ?? [];
+        const d = data as {
+          steps?: string[];
+          wrongStep?: number | null;
+          message?: string | null;
+        } | null;
+        const steps = d?.steps ?? [];
         if (steps.length === 0) {
           setPreviewError(
             "We couldn't read any math. Try writing a bit more clearly.",
           );
         } else {
           setPreviewSteps(steps);
+          setPreviewWrongStep(d?.wrongStep ?? null);
+          setPreviewMessage(d?.message ?? null);
           setNotice(
-            "Here's what we read. Step-by-step verification is coming soon.",
+            d?.wrongStep == null
+              ? "No errors found in your steps."
+              : "We found a step that doesn't follow — see the panel.",
           );
         }
       } catch (err) {
@@ -185,6 +195,8 @@ export function SolveWorkspace() {
             steps={previewSteps}
             loading={previewLoading}
             error={previewError}
+            wrongStep={previewWrongStep}
+            message={previewMessage}
             onClose={() => setPreviewOpen(false)}
           />
         )}
