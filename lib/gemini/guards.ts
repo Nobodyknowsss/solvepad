@@ -18,3 +18,15 @@ export const ExplainResultSchema = z.object({
 });
 
 export type ExplainResult = z.infer<typeof ExplainResultSchema>;
+
+export const SolutionStepSchema = z.object({
+  latex: z.string(),
+  explanation: z.string(),
+});
+
+export const SolutionResultSchema = z.object({
+  steps: z.array(SolutionStepSchema),
+});
+
+export type SolutionStep = z.infer<typeof SolutionStepSchema>;
+export type SolutionResult = z.infer<typeof SolutionResultSchema>;

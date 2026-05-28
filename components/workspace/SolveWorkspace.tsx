@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import Link from "next/link";
-import { ArrowLeft, Check, Eraser } from "lucide-react";
+import { ArrowLeft, Check, Eraser, Lightbulb } from "lucide-react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { exportCanvasPng } from "@/lib/excalidraw-export";
 import { TOPICS, topicById } from "@/lib/topics";
@@ -76,12 +86,14 @@ export function SolveWorkspace() {
   const [previewSteps, setPreviewSteps] = useState<string[]>([]);
   const [previewWrongStep, setPreviewWrongStep] = useState<number | null>(null);
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
-  const [previewExplanation, setPreviewExplanation] = useState<string | null>(
-    null,
-  );
+  const [previewExplanations, setPreviewExplanations] = useState<
+    (string | null)[]
+  >([]);
   const [previewStepStatus, setPreviewStepStatus] = useState<
     Array<"ok" | "wrong" | "unknown">
   >([]);
+  const [solutionConfirmOpen, setSolutionConfirmOpen] = useState(false);
+  const [solving, setSolving] = useState(false);
 
   const insertCount = useRef(0);
 
@@ -133,7 +145,7 @@ export function SolveWorkspace() {
       setPreviewSteps([]);
       setPreviewWrongStep(null);
       setPreviewMessage(null);
-      setPreviewExplanation(null);
+      setPreviewExplanations([]);
       setPreviewStepStatus([]);
       setPreviewLoading(true);
       try {
@@ -166,7 +178,17 @@ export function SolveWorkspace() {
           setPreviewSteps(steps);
           setPreviewWrongStep(d?.wrongStep ?? null);
           setPreviewMessage(d?.message ?? null);
-          setPreviewExplanation(d?.explanation ?? null);
+          // Only the wrongStep index gets a value; everything else null.
+          const expls: (string | null)[] = steps.map(() => null);
+          if (
+            typeof d?.wrongStep === "number" &&
+            d.wrongStep >= 0 &&
+            d.wrongStep < expls.length &&
+            d?.explanation
+          ) {
+            expls[d.wrongStep] = d.explanation;
+          }
+          setPreviewExplanations(expls);
           setPreviewStepStatus(d?.stepStatus ?? []);
           setNotice(
             d?.wrongStep == null
@@ -183,6 +205,70 @@ export function SolveWorkspace() {
       }
     } finally {
       setChecking(false);
+    }
+  }
+
+  async function handleShowSolution() {
+    setSolutionConfirmOpen(false);
+    setSolving(true);
+    setNotice(null);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getClaims();
+      if (!data?.claims) {
+        const next = `${pathname}?${searchParams.toString()}`;
+        router.push(`/auth/sign-up?next=${encodeURIComponent(next)}`);
+        return;
+      }
+      if (!problem.trim()) {
+        setNotice("Pick a topic or type a problem first.");
+        return;
+      }
+      setPreviewOpen(true);
+      setPreviewError(null);
+      setPreviewSteps([]);
+      setPreviewWrongStep(null);
+      setPreviewMessage(null);
+      setPreviewExplanations([]);
+      setPreviewStepStatus([]);
+      setPreviewLoading(true);
+      try {
+        const res = await fetch("/api/solution", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ problem }),
+        });
+        const data: unknown = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(
+            (data as { error?: string } | null)?.error ??
+              "Could not generate a solution.",
+          );
+        }
+        const d = data as {
+          steps?: string[];
+          explanations?: string[];
+        } | null;
+        const steps = d?.steps ?? [];
+        if (steps.length === 0) {
+          setPreviewError("No solution could be generated. Try a different problem.");
+        } else {
+          setPreviewSteps(steps);
+          setPreviewStepStatus(steps.map(() => "ok"));
+          setPreviewExplanations(
+            steps.map((_, i) => d?.explanations?.[i] ?? null),
+          );
+          setNotice("Here's a full step-by-step solution.");
+        }
+      } catch (err) {
+        setPreviewError(
+          err instanceof Error ? err.message : "Something went wrong. Try again.",
+        );
+      } finally {
+        setPreviewLoading(false);
+      }
+    } finally {
+      setSolving(false);
     }
   }
 
@@ -228,7 +314,16 @@ export function SolveWorkspace() {
               <Eraser className="size-4" />
               Clear
             </Button>
-            <Button size="sm" onClick={handleCheck} disabled={checking}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSolutionConfirmOpen(true)}
+              disabled={solving || checking}
+            >
+              <Lightbulb className="size-4" />
+              Show solution
+            </Button>
+            <Button size="sm" onClick={handleCheck} disabled={checking || solving}>
               <Check className="size-4" />
               Check my answer
             </Button>
@@ -260,12 +355,33 @@ export function SolveWorkspace() {
             error={previewError}
             wrongStep={previewWrongStep}
             message={previewMessage}
-            explanation={previewExplanation}
+            explanations={previewExplanations}
             stepStatus={previewStepStatus}
             onClose={() => setPreviewOpen(false)}
           />
         )}
       </div>
+
+      <AlertDialog
+        open={solutionConfirmOpen}
+        onOpenChange={setSolutionConfirmOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reveal the full solution?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You won&apos;t be able to practice this problem fresh after seeing
+              the worked steps.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleShowSolution}>
+              Show me
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

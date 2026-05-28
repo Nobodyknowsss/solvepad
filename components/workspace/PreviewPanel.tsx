@@ -26,7 +26,7 @@ export function PreviewPanel({
   error,
   wrongStep,
   message,
-  explanation,
+  explanations,
   stepStatus,
   onClose,
 }: {
@@ -36,7 +36,7 @@ export function PreviewPanel({
   error: string | null;
   wrongStep: number | null;
   message: string | null;
-  explanation: string | null;
+  explanations: (string | null)[];
   stepStatus: StepStatus[];
   onClose: () => void;
 }) {
@@ -112,9 +112,9 @@ export function PreviewPanel({
                       {message}
                     </p>
                   )}
-                  {isWrong && explanation && (
+                  {explanations[i] && (
                     <p className="pl-3 text-xs leading-relaxed text-muted-foreground">
-                      {explanation}
+                      {explanations[i]}
                     </p>
                   )}
                 </li>
