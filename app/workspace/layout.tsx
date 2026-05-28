@@ -1,4 +1,3 @@
-import { Sidebar } from "@/components/workspace/Sidebar";
 import { Topbar } from "@/components/workspace/Topbar";
 
 export default function AppLayout({
@@ -7,12 +6,9 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
+      <Topbar />
+      <main className="flex-1 overflow-y-auto">{children}</main>
     </div>
   );
 }

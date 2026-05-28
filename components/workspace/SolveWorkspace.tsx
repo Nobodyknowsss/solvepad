@@ -1,15 +1,24 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { ArrowLeft, Check, Eraser } from "lucide-react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { exportCanvasPng } from "@/lib/excalidraw-export";
+import { TOPICS, topicById } from "@/lib/topics";
 import { PreviewPanel } from "./PreviewPanel";
 import { SymbolPalette } from "./SymbolPalette";
 
@@ -22,11 +31,6 @@ const DrawingCanvas = dynamic(() => import("./DrawingCanvas"), {
   ),
 });
 
-const TOPIC_LABELS: Record<string, string> = {
-  LINEAR_EQUATIONS: "Linear equations",
-  FACTORING: "Factoring",
-};
-
 export function SolveWorkspace() {
   const router = useRouter();
   const pathname = usePathname();
@@ -35,7 +39,32 @@ export function SolveWorkspace() {
 
   const problem = searchParams.get("problem") ?? "";
   const topic = searchParams.get("topic") ?? "";
-  const topicLabel = TOPIC_LABELS[topic] ?? "Your problem";
+  const activeTopic = topicById(topic);
+
+  // Editable problem field — local draft synced from the URL; commit on Enter/blur.
+  const [problemDraft, setProblemDraft] = useState(problem);
+  useEffect(() => {
+    setProblemDraft(problem);
+  }, [problem]);
+
+  function updateUrl(next: { topic?: string; problem?: string }) {
+    const sp = new URLSearchParams(searchParams.toString());
+    if (next.topic !== undefined) sp.set("topic", next.topic);
+    if (next.problem !== undefined) sp.set("problem", next.problem);
+    router.replace(`${pathname}?${sp.toString()}`);
+  }
+
+  function handleTopicChange(nextTopicId: string) {
+    const t = topicById(nextTopicId);
+    if (!t) return;
+    updateUrl({ topic: nextTopicId, problem: t.example });
+  }
+
+  function commitProblem() {
+    const trimmed = problemDraft.trim();
+    if (trimmed && trimmed !== problem) updateUrl({ problem: trimmed });
+    else setProblemDraft(problem);
+  }
 
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
   const [checking, setChecking] = useState(false);
@@ -159,30 +188,51 @@ export function SolveWorkspace() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-3">
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            {topicLabel}
-          </p>
-          <p className="truncate font-mono text-base text-foreground md:text-lg">
-            {problem || "No problem selected"}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/workspace">
-              <ArrowLeft className="size-4" />
-              New problem
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" onClick={clearCanvas}>
-            <Eraser className="size-4" />
-            Clear
-          </Button>
-          <Button size="sm" onClick={handleCheck} disabled={checking}>
-            <Check className="size-4" />
-            Check my answer
-          </Button>
+      <div className="border-b border-border px-4 py-3 md:px-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+            <Select
+              value={activeTopic?.id ?? ""}
+              onValueChange={handleTopicChange}
+            >
+              <SelectTrigger className="w-full shrink-0 sm:w-44">
+                <SelectValue placeholder="Topic" />
+              </SelectTrigger>
+              <SelectContent>
+                {TOPICS.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              value={problemDraft}
+              onChange={(e) => setProblemDraft(e.target.value)}
+              onBlur={commitProblem}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              placeholder="Type your own problem"
+              className="min-w-0 flex-1 font-mono"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/workspace">
+                <ArrowLeft className="size-4" />
+                New problem
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" onClick={clearCanvas}>
+              <Eraser className="size-4" />
+              Clear
+            </Button>
+            <Button size="sm" onClick={handleCheck} disabled={checking}>
+              <Check className="size-4" />
+              Check my answer
+            </Button>
+          </div>
         </div>
       </div>
 

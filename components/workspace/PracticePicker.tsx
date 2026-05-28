@@ -6,33 +6,8 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-
-type Topic = {
-  id: "LINEAR_EQUATIONS" | "FACTORING";
-  title: string;
-  description: string;
-  example: string;
-  meta: string;
-  recommended?: boolean;
-};
-
-const TOPICS: Topic[] = [
-  {
-    id: "LINEAR_EQUATIONS",
-    title: "Linear equations",
-    description: "Solve for one variable",
-    example: "3x + 7 = 22",
-    meta: "Lvl 2 · Two-step",
-    recommended: true,
-  },
-  {
-    id: "FACTORING",
-    title: "Factoring",
-    description: "Quadratics & differences of squares",
-    example: "x² - 5x + 6",
-    meta: "Lvl 1 · Easy",
-  },
-];
+import { TOPICS, type TopicConfig } from "@/lib/topics";
+import { TypingLoop } from "./TypingLoop";
 
 const EXAMPLES = ["5x - 3 = 12", "x² + 6x + 9", "4(x+1) = 2x+10", "x² - 16"];
 
@@ -40,7 +15,7 @@ export function PracticePicker() {
   const router = useRouter();
   const [custom, setCustom] = useState("");
 
-  function startTopic(topic: Topic) {
+  function startTopic(topic: TopicConfig) {
     const params = new URLSearchParams({ topic: topic.id, problem: topic.example });
     router.push(`/workspace/solve?${params.toString()}`);
   }
@@ -54,7 +29,11 @@ export function PracticePicker() {
 
   return (
     <div className="mt-10">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <TypingLoop
+        text="Solve for x:"
+        className="block font-mono text-lg font-medium text-foreground md:text-xl"
+      />
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {TOPICS.map((topic) => (
           <button
             key={topic.id}
