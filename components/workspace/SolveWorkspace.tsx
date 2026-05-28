@@ -9,6 +9,7 @@ import { ArrowLeft, Check, Eraser } from "lucide-react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { exportCanvasPng } from "@/lib/excalidraw-export";
 import { PreviewPanel } from "./PreviewPanel";
 import { SymbolPalette } from "./SymbolPalette";
 
@@ -85,15 +86,50 @@ export function SolveWorkspace() {
         router.push(`/auth/sign-up?next=${encodeURIComponent(next)}`);
         return;
       }
-      // Signed in → preview (read) the canvas first, then (later) verify.
+      if (!api) {
+        setNotice("Canvas isn't ready yet — give it a second and try again.");
+        return;
+      }
+      // Signed in → preview (read) the canvas, then (later) verify with nerdamer.
       setPreviewOpen(true);
       setPreviewError(null);
+      setPreviewSteps([]);
       setPreviewLoading(true);
-      // TEMP mock — replaced with canvas export + POST /api/preview in the backend step.
-      await new Promise((r) => setTimeout(r, 800));
-      setPreviewSteps(["2x + 3 = 7", "2x = 4", "x = 2"]);
-      setPreviewLoading(false);
-      setNotice("Here's what we read. Step-by-step verification is coming soon.");
+      try {
+        const image = await exportCanvasPng(api);
+        const res = await fetch("/api/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image }),
+        });
+        const data: unknown = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(
+            (data as { error?: string } | null)?.error ??
+              "Could not read your handwriting.",
+          );
+        }
+        const steps =
+          (data as { steps?: { latex: string }[] } | null)?.steps?.map(
+            (s) => s.latex,
+          ) ?? [];
+        if (steps.length === 0) {
+          setPreviewError(
+            "We couldn't read any math. Try writing a bit more clearly.",
+          );
+        } else {
+          setPreviewSteps(steps);
+          setNotice(
+            "Here's what we read. Step-by-step verification is coming soon.",
+          );
+        }
+      } catch (err) {
+        setPreviewError(
+          err instanceof Error ? err.message : "Something went wrong. Try again.",
+        );
+      } finally {
+        setPreviewLoading(false);
+      }
     } finally {
       setChecking(false);
     }
