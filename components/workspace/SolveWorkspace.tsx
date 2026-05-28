@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -9,6 +9,8 @@ import { ArrowLeft, Check, Eraser } from "lucide-react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { PreviewPanel } from "./PreviewPanel";
+import { SymbolPalette } from "./SymbolPalette";
 
 const DrawingCanvas = dynamic(() => import("./DrawingCanvas"), {
   ssr: false,
@@ -38,9 +40,38 @@ export function SolveWorkspace() {
   const [checking, setChecking] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewSteps, setPreviewSteps] = useState<string[]>([]);
+
+  const insertCount = useRef(0);
+
   function clearCanvas() {
     api?.updateScene({ elements: [] });
     setNotice(null);
+  }
+
+  async function insertSymbol(symbol: string) {
+    if (!api) return;
+    const { convertToExcalidrawElements, CaptureUpdateAction } = await import(
+      "@excalidraw/excalidraw"
+    );
+    const appState = api.getAppState();
+    const zoom = appState.zoom?.value ?? 1;
+    // Drop the symbol at the centre of the visible canvas, cascading a little so
+    // repeated inserts don't stack exactly on top of each other.
+    const cascade = (insertCount.current = (insertCount.current + 1) % 8) * 14;
+    const sceneX = appState.width / 2 / zoom - appState.scrollX + cascade;
+    const sceneY = appState.height / 2 / zoom - appState.scrollY + cascade;
+    const els = convertToExcalidrawElements([
+      { type: "text", x: sceneX, y: sceneY, text: symbol, fontSize: 28 },
+    ]);
+    api.updateScene({
+      elements: [...api.getSceneElements(), ...els],
+      appState: { selectedElementIds: { [els[0].id]: true } },
+      captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+    });
   }
 
   async function handleCheck() {
@@ -54,9 +85,15 @@ export function SolveWorkspace() {
         router.push(`/auth/sign-up?next=${encodeURIComponent(next)}`);
         return;
       }
-      setNotice(
-        "You're signed in. Checking your handwriting (PNG → DeepSeek → nerdamer) is the next build step.",
-      );
+      // Signed in → preview (read) the canvas first, then (later) verify.
+      setPreviewOpen(true);
+      setPreviewError(null);
+      setPreviewLoading(true);
+      // TEMP mock — replaced with canvas export + POST /api/preview in the backend step.
+      await new Promise((r) => setTimeout(r, 800));
+      setPreviewSteps(["2x + 3 = 7", "2x = 4", "x = 2"]);
+      setPreviewLoading(false);
+      setNotice("Here's what we read. Step-by-step verification is coming soon.");
     } finally {
       setChecking(false);
     }
@@ -97,11 +134,24 @@ export function SolveWorkspace() {
         </div>
       )}
 
-      <div className="relative min-h-0 flex-1">
-        <DrawingCanvas
-          onApi={setApi}
-          theme={resolvedTheme === "light" ? "light" : "dark"}
-        />
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <SymbolPalette onInsert={insertSymbol} disabled={!api} />
+          <div className="relative min-h-0 flex-1">
+            <DrawingCanvas
+              onApi={setApi}
+              theme={resolvedTheme === "light" ? "light" : "dark"}
+            />
+          </div>
+        </div>
+        {previewOpen && (
+          <PreviewPanel
+            steps={previewSteps}
+            loading={previewLoading}
+            error={previewError}
+            onClose={() => setPreviewOpen(false)}
+          />
+        )}
       </div>
     </div>
   );
