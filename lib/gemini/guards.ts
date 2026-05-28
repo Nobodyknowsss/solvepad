@@ -1,16 +1,20 @@
-export type PreviewStep = { latex: string; expr: string };
+import { z } from "zod";
 
-export type PreviewResult = {
-  steps: PreviewStep[];
-};
 
-export function isPreviewResult(v: unknown): v is PreviewResult {
-  if (!v || typeof v !== "object") return false;
-  const o = v as Record<string, unknown>;
-  if (!Array.isArray(o.steps)) return false;
-  return o.steps.every((s) => {
-    if (!s || typeof s !== "object") return false;
-    const st = s as Record<string, unknown>;
-    return typeof st.latex === "string" && typeof st.expr === "string";
-  });
-}
+export const PreviewStepSchema = z.object({
+  latex: z.string(),
+  expr: z.string(),
+});
+
+export const PreviewResultSchema = z.object({
+  steps: z.array(PreviewStepSchema),
+});
+
+export type PreviewStep = z.infer<typeof PreviewStepSchema>;
+export type PreviewResult = z.infer<typeof PreviewResultSchema>;
+
+export const ExplainResultSchema = z.object({
+  explanation: z.string(),
+});
+
+export type ExplainResult = z.infer<typeof ExplainResultSchema>;

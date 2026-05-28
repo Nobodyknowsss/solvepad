@@ -1,6 +1,6 @@
 import { genai } from "./client";
 import { READ_SYSTEM_PROMPT, READ_USER_PROMPT } from "./prompts";
-import { isPreviewResult, type PreviewResult } from "./guards";
+import { PreviewResultSchema, type PreviewResult } from "./guards";
 
 /**
  * Send a base64 PNG of the canvas to Gemini and get back the handwritten steps
@@ -34,8 +34,9 @@ export async function previewCanvas(pngBase64: string): Promise<PreviewResult> {
     throw new Error("Gemini did not return valid JSON");
   }
 
-  if (!isPreviewResult(parsed)) {
-    throw new Error("Gemini response had an unexpected shape");
+  const result = PreviewResultSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new Error(`Gemini response had an unexpected shape: ${result.error.message}`);
   }
-  return parsed;
+  return result.data;
 }

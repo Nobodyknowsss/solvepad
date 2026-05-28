@@ -47,6 +47,12 @@ export function SolveWorkspace() {
   const [previewSteps, setPreviewSteps] = useState<string[]>([]);
   const [previewWrongStep, setPreviewWrongStep] = useState<number | null>(null);
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
+  const [previewExplanation, setPreviewExplanation] = useState<string | null>(
+    null,
+  );
+  const [previewStepStatus, setPreviewStepStatus] = useState<
+    Array<"ok" | "wrong" | "unknown">
+  >([]);
 
   const insertCount = useRef(0);
 
@@ -98,6 +104,8 @@ export function SolveWorkspace() {
       setPreviewSteps([]);
       setPreviewWrongStep(null);
       setPreviewMessage(null);
+      setPreviewExplanation(null);
+      setPreviewStepStatus([]);
       setPreviewLoading(true);
       try {
         const image = await exportCanvasPng(api);
@@ -117,6 +125,8 @@ export function SolveWorkspace() {
           steps?: string[];
           wrongStep?: number | null;
           message?: string | null;
+          explanation?: string | null;
+          stepStatus?: Array<"ok" | "wrong" | "unknown">;
         } | null;
         const steps = d?.steps ?? [];
         if (steps.length === 0) {
@@ -127,6 +137,8 @@ export function SolveWorkspace() {
           setPreviewSteps(steps);
           setPreviewWrongStep(d?.wrongStep ?? null);
           setPreviewMessage(d?.message ?? null);
+          setPreviewExplanation(d?.explanation ?? null);
+          setPreviewStepStatus(d?.stepStatus ?? []);
           setNotice(
             d?.wrongStep == null
               ? "No errors found in your steps."
@@ -192,11 +204,14 @@ export function SolveWorkspace() {
         </div>
         {previewOpen && (
           <PreviewPanel
+            problem={problem}
             steps={previewSteps}
             loading={previewLoading}
             error={previewError}
             wrongStep={previewWrongStep}
             message={previewMessage}
+            explanation={previewExplanation}
+            stepStatus={previewStepStatus}
             onClose={() => setPreviewOpen(false)}
           />
         )}

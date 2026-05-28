@@ -4,10 +4,14 @@ import "nerdamer/Solve";
 
 import type { PreviewStep } from "@/lib/gemini/guards";
 
+export type StepStatus = "ok" | "wrong" | "unknown";
+
 export type Verdict = {
   /** Index into `steps` of the first line that doesn't follow; null = all good. */
   wrongStep: number | null;
   message: string | null;
+  /** One status per step in `steps`. After a `wrong`, the rest are `unknown`. */
+  stepStatus: StepStatus[];
 };
 
 /**
@@ -17,20 +21,25 @@ export type Verdict = {
  */
 export function verifySolution(problem: string, steps: PreviewStep[]): Verdict {
   const seq = [problem, ...steps.map((s) => s.expr)].map(normalizeMathInput);
+  const stepStatus: StepStatus[] = new Array(steps.length).fill("unknown");
 
   for (let k = 0; k < seq.length - 1; k++) {
     // seq[k+1] is steps[k], so a bad pair flags step index k.
     const result = followsFrom(seq[k], seq[k + 1]);
     if (result === false) {
+      stepStatus[k] = "wrong";
+      // Everything after a wrong step stays "unknown" — we don't verify
+      // further because the chain is already broken.
       return {
         wrongStep: k,
         message: "This line doesn't follow from the line above it.",
+        stepStatus,
       };
     }
-    // result === null → couldn't verify this line; skip rather than false-flag.
+    stepStatus[k] = result === true ? "ok" : "unknown";
   }
 
-  return { wrongStep: null, message: null };
+  return { wrongStep: null, message: null, stepStatus };
 }
 
 /** true = valid step, false = invalid step, null = couldn't determine. */
@@ -75,7 +84,11 @@ const SUPERSCRIPTS: Record<string, string> = {
 
 /** Convert human/problem math into nerdamer-parseable syntax. */
 export function normalizeMathInput(s: string): string {
-  let out = s;
+  // Case-fold variables: 'X' and 'x' should be the same variable for a student
+  // learning algebra. Sloppy handwriting / OCR shouldn't be flagged as wrong.
+  // Safe for our topics — `sqrt(` is already lowercase, and Unicode digits are
+  // unaffected by toLowerCase.
+  let out = s.toLowerCase();
   // Unicode superscripts → ^digits (x² → x^2)
   out = out.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, (m) =>
     "^" + [...m].map((c) => SUPERSCRIPTS[c]).join(""),
