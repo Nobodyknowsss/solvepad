@@ -6,17 +6,29 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { TOPICS, type TopicConfig } from "@/lib/topics";
+import { PROBLEMS, type Difficulty, type ProblemConfig } from "@/lib/topics";
 import { TypingLoop } from "./TypingLoop";
 
-const EXAMPLES = ["5x - 3 = 12", "x² + 6x + 9", "4(x+1) = 2x+10", "x² - 16"];
+const EXAMPLES = ["5x - 3 = 12", "4(x+1) = 2x+10", "2(x - 4) + 5 = 17", "7x = 21"];
+
+const DIFFICULTY_LABEL: Record<Difficulty, string> = {
+  easy: "Easy",
+  medium: "Medium",
+  hard: "Hard",
+};
+
+const DIFFICULTY_BADGE: Record<Difficulty, string> = {
+  easy: "text-muted-foreground",
+  medium: "text-foreground",
+  hard: "text-red-700 dark:text-red-400",
+};
 
 export function PracticePicker() {
   const router = useRouter();
   const [custom, setCustom] = useState("");
 
-  function startTopic(topic: TopicConfig) {
-    const params = new URLSearchParams({ topic: topic.id, problem: topic.example });
+  function startProblem(p: ProblemConfig) {
+    const params = new URLSearchParams({ problem: p.problem });
     router.push(`/workspace/solve?${params.toString()}`);
   }
 
@@ -33,33 +45,30 @@ export function PracticePicker() {
         text="Solve for x:"
         className="block font-mono text-lg font-medium text-foreground md:text-xl"
       />
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        {TOPICS.map((topic) => (
+      <div className="mt-4 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {PROBLEMS.map((p) => (
           <button
-            key={topic.id}
+            key={p.id}
             type="button"
-            onClick={() => startTopic(topic)}
+            onClick={() => startProblem(p)}
             className={cn(
               "group flex cursor-pointer flex-col rounded-xl border border-border bg-card p-5 text-left transition-colors",
               "hover:border-primary/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             )}
           >
             <div className="flex items-start justify-between gap-3">
-              <h3 className="font-semibold tracking-tight">{topic.title}</h3>
-              {topic.recommended && (
-                <span className="shrink-0 text-xs font-medium text-red-700 dark:text-red-400">
-                  Recommended
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">{topic.description}</p>
-            <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm">
-              <span className="text-xs text-muted-foreground">EX</span>
-              <span>{topic.example}</span>
-            </div>
-            <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-              <span>{topic.meta}</span>
+              <span
+                className={cn(
+                  "text-xs font-semibold uppercase tracking-widest",
+                  DIFFICULTY_BADGE[p.difficulty],
+                )}
+              >
+                {DIFFICULTY_LABEL[p.difficulty]}
+              </span>
               <ArrowRight className="size-4 opacity-0 transition-opacity group-hover:opacity-100" />
+            </div>
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm">
+              <span>{p.problem}</span>
             </div>
           </button>
         ))}

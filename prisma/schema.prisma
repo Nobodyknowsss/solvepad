@@ -19,7 +19,6 @@ model users {
 
 enum AlgebraTopic {
   LINEAR_EQUATIONS
-  FACTORING
 }
 
 model Attempt {

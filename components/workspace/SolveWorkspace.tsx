@@ -10,13 +10,6 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -28,7 +21,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { createClient } from "@/lib/supabase/client";
 import { exportCanvasPng } from "@/lib/excalidraw-export";
-import { TOPICS, topicById } from "@/lib/topics";
 import { PreviewPanel } from "./PreviewPanel";
 import { SymbolPalette } from "./SymbolPalette";
 
@@ -48,8 +40,6 @@ export function SolveWorkspace() {
   const { resolvedTheme } = useTheme();
 
   const problem = searchParams.get("problem") ?? "";
-  const topic = searchParams.get("topic") ?? "";
-  const activeTopic = topicById(topic);
 
   // Editable problem field — local draft synced from the URL; commit on Enter/blur.
   const [problemDraft, setProblemDraft] = useState(problem);
@@ -57,17 +47,10 @@ export function SolveWorkspace() {
     setProblemDraft(problem);
   }, [problem]);
 
-  function updateUrl(next: { topic?: string; problem?: string }) {
+  function updateUrl(next: { problem: string }) {
     const sp = new URLSearchParams(searchParams.toString());
-    if (next.topic !== undefined) sp.set("topic", next.topic);
-    if (next.problem !== undefined) sp.set("problem", next.problem);
+    sp.set("problem", next.problem);
     router.replace(`${pathname}?${sp.toString()}`);
-  }
-
-  function handleTopicChange(nextTopicId: string) {
-    const t = topicById(nextTopicId);
-    if (!t) return;
-    updateUrl({ topic: nextTopicId, problem: t.example });
   }
 
   function commitProblem() {
@@ -96,6 +79,32 @@ export function SolveWorkspace() {
   const [solving, setSolving] = useState(false);
 
   const insertCount = useRef(0);
+  const preloadedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!api || !problem || preloadedFor.current === problem) return;
+    let cancelled = false;
+    (async () => {
+      const { convertToExcalidrawElements, CaptureUpdateAction } = await import(
+        "@excalidraw/excalidraw"
+      );
+      if (cancelled || !api) return;
+      const appState = api.getAppState();
+      const sceneX = -appState.scrollX + 40;
+      const sceneY = -appState.scrollY + 40;
+      const els = convertToExcalidrawElements([
+        { type: "text", x: sceneX, y: sceneY, text: problem, fontSize: 32 },
+      ]);
+      api.updateScene({
+        elements: [...api.getSceneElements(), ...els],
+        captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+      });
+      preloadedFor.current = problem;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, problem]);
 
   function clearCanvas() {
     api?.updateScene({ elements: [] });
@@ -276,22 +285,7 @@ export function SolveWorkspace() {
     <div className="flex h-full flex-col overflow-hidden">
       <div className="border-b border-border px-4 py-3 md:px-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-            <Select
-              value={activeTopic?.id ?? ""}
-              onValueChange={handleTopicChange}
-            >
-              <SelectTrigger className="w-full shrink-0 sm:w-44">
-                <SelectValue placeholder="Topic" />
-              </SelectTrigger>
-              <SelectContent>
-                {TOPICS.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <Input
               value={problemDraft}
               onChange={(e) => setProblemDraft(e.target.value)}
