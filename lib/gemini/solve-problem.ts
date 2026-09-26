@@ -1,4 +1,4 @@
-import { genai } from "./client";
+import { generateContentWithRetry, genai } from "./client";
 import { SOLVE_SYSTEM_PROMPT } from "./prompts";
 import { SolutionResultSchema, type SolutionResult } from "./guards";
 
@@ -12,14 +12,16 @@ export async function generateSolution(
 ): Promise<SolutionResult> {
   const userPrompt = `Solve this problem step-by-step: ${problem}`;
 
-  const res = await genai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-    config: {
-      systemInstruction: SOLVE_SYSTEM_PROMPT,
-      responseMimeType: "application/json",
-    },
-  });
+  const res = await generateContentWithRetry(() =>
+    genai.models.generateContent({
+      model: "models/gemini-3.8-flash",
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      config: {
+        systemInstruction: SOLVE_SYSTEM_PROMPT,
+        responseMimeType: "application/json",
+      },
+    }),
+  );
 
   const text = res.text;
   if (!text) throw new Error("Gemini returned an empty solution");

@@ -1,4 +1,4 @@
-import { genai } from "./client";
+import { generateContentWithRetry, genai } from "./client";
 import { EXPLAIN_SYSTEM_PROMPT } from "./prompts";
 import { ExplainResultSchema } from "./guards";
 
@@ -19,14 +19,16 @@ export async function explainError(args: {
     `Student's next line (incorrect): ${args.wrongLine}\n\n` +
     `Explain to the student why their line doesn't follow from the previous line, and hint at the fix. Do not reveal the corrected line or the final answer.`;
 
-  const res = await genai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-    config: {
-      systemInstruction: EXPLAIN_SYSTEM_PROMPT,
-      responseMimeType: "application/json",
-    },
-  });
+  const res = await generateContentWithRetry(() =>
+    genai.models.generateContent({
+      model: "models/gemini-3.8-flash",
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+      config: {
+        systemInstruction: EXPLAIN_SYSTEM_PROMPT,
+        responseMimeType: "application/json",
+      },
+    }),
+  );
 
   const text = res.text;
   if (!text) throw new Error("Gemini returned an empty explanation");

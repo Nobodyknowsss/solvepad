@@ -75,6 +75,12 @@ export async function POST(req: Request) {
         { status: 429 },
       );
     }
+    if (isServiceUnavailable(err)) {
+      return Response.json(
+        { error: "Gemini is temporarily busy — try again in a moment." },
+        { status: 503 },
+      );
+    }
     return Response.json(
       { error: "Could not read your handwriting. Please try again." },
       { status: 502 },
@@ -85,4 +91,14 @@ export async function POST(req: Request) {
 function isRateLimit(err: unknown): boolean {
   const s = String((err as { message?: unknown })?.message ?? err);
   return s.includes("429") || s.includes("RESOURCE_EXHAUSTED");
+}
+
+function isServiceUnavailable(err: unknown): boolean {
+  const details = err as { status?: unknown; message?: unknown };
+  const s = String(details?.message ?? err);
+  return (
+    Number(details?.status) === 503 ||
+    s.includes("503") ||
+    s.includes("UNAVAILABLE")
+  );
 }
